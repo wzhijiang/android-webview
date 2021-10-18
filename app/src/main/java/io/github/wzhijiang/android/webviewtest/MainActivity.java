@@ -1,5 +1,7 @@
 package io.github.wzhijiang.android.webviewtest;
 
+import android.opengl.GLES20;
+import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -8,49 +10,152 @@ import com.google.android.material.snackbar.Snackbar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
+import android.os.Handler;
+import android.os.Looper;
+import android.util.DisplayMetrics;
+import android.util.Log;
+import android.view.MotionEvent;
+import android.view.Surface;
 import android.view.View;
 
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.Window;
+import android.widget.FrameLayout;
+
+import javax.microedition.khronos.egl.EGLConfig;
+import javax.microedition.khronos.opengles.GL10;
+
+import io.github.wzhijiang.android.surface.ExternalTexture;
+import io.github.wzhijiang.android.surface.QuadRenderer;
+import io.github.wzhijiang.android.surface.TextureHandle;
+import io.github.wzhijiang.android.webview.SimpleWebView;
 
 public class MainActivity extends AppCompatActivity {
+
+    private SimpleWebView mWebView;
+    private GLSurfaceView mSurfaceView;
+    private Handler mHandler;
+    private ExternalTexture mExternalTexture;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
+
         setContentView(R.layout.activity_main);
-        Toolbar toolbar = findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
 
-        FloatingActionButton fab = findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
-            }
-        });
+        mSurfaceView = (GLSurfaceView)findViewById(R.id.surface_view);
+        mSurfaceView.setEGLContextClientVersion(2);
+        mSurfaceView.setRenderer(mRenderer);
+
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        this.getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+
+        FrameLayout rootLayout = findViewById(R.id.root_layout);
+        mWebView = SimpleWebView.create(this, rootLayout, displayMetrics.widthPixels,
+                displayMetrics.heightPixels, 0);
+        mHandler = new Handler(Looper.getMainLooper());
     }
 
     @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_main, menu);
-        return true;
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (mWebView != null) {
+            return mWebView.dispatchTouchEvent((int) ev.getX(), (int) ev.getY(), ev.getAction());
+        }
+        return super.dispatchTouchEvent(ev);
     }
 
     @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            hideSystemUI();
+        }
+    }
 
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
+    private void hideSystemUI() {
+        View decorView = getWindow().getDecorView();
+        decorView.setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_IMMERSIVE
+                        // Set the content to appear under the system bars so that the
+                        // content doesn't resize when the system bars hide and show.
+                        | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        // Hide the nav bar and status bar
+                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_FULLSCREEN);
+    }
+
+    private void showSystemUI() {
+        View decorView = getWindow().getDecorView();
+        decorView.setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+    }
+
+    private GLSurfaceView.Renderer mRenderer = new GLSurfaceView.Renderer() {
+
+        private QuadRenderer mQuadRenderer;
+
+        private Surface mSurface;
+
+        private TextureHandle mTextureHandle;
+
+        @Override
+        public void onSurfaceCreated(GL10 gl, EGLConfig config) {
+            mQuadRenderer = new QuadRenderer();
+            mQuadRenderer.initGL();
         }
 
-        return super.onOptionsItemSelected(item);
-    }
+        /**
+         * Note that `onSurfaceChanged` will be called twice when the app launches.
+         */
+        @Override
+        public void onSurfaceChanged(GL10 gl, int width, int height) {
+            GLES20.glViewport(0, 0, width, height);
+            Log.d(BuildConfig.LOG_TAG, "Surface changed: " + width + ", " + height);
+
+            Release();
+
+            mExternalTexture = new ExternalTexture(mHandler, width, height);
+            mSurface = new Surface(mExternalTexture.getSurfaceTexture());
+
+            mHandler.post(() -> {
+                mWebView.setSurface(mSurface);
+                mWebView.resize(width, height);
+                mWebView.loadUrl("https://www.google.com/");
+            });
+        }
+
+        @Override
+        public void onDrawFrame(GL10 gl) {
+            mExternalTexture.updateTexture();
+
+            if (mTextureHandle == null && mExternalTexture.isPlaybackStarted()) {
+                mTextureHandle = mExternalTexture.getTextureHandle();
+            }
+
+            if (mTextureHandle != null) {
+                mQuadRenderer.draw(mTextureHandle);
+            }
+        }
+
+        void Release() {
+            if (mWebView != null) {
+                mWebView.setSurface(null);
+            }
+
+            if (mSurface != null) {
+                mSurface.release();
+            }
+
+            if (mExternalTexture != null) {
+                mExternalTexture.release();
+            }
+        }
+    };
 }

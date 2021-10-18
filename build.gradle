@@ -3,6 +3,10 @@ buildscript {
     repositories {
         google()
         jcenter()
+
+        maven {
+            url "https://maven.pkg.github.com/wzhijiang/android-surface"
+        }
     }
     dependencies {
         classpath "com.android.tools.build:gradle:4.1.1"
@@ -16,6 +20,10 @@ allprojects {
     repositories {
         google()
         jcenter()
+
+        maven {
+            url "https://maven.pkg.github.com/wzhijiang/android-surface"
+        }
     }
 }
 
