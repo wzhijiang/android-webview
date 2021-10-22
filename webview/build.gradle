@@ -14,7 +14,7 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles "consumer-rules.pro"
 
-        buildConfigField "String", "LOG_TAG", "\"IGW-SURFACE\""
+        buildConfigField "String", "LOG_TAG", "\"IGW-WEBVIEW\""
     }
 
     buildTypes {

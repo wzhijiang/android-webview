@@ -115,7 +115,9 @@ public class MainActivity extends AppCompatActivity {
 
             release();
 
-            mExternalTexture = new ExternalTexture(mHandler, width, height);
+            Handler setFrameAvailableHandler = mHandler;
+
+            mExternalTexture = new ExternalTexture(setFrameAvailableHandler, width, height);
             mSurface = new Surface(mExternalTexture.getSurfaceTexture());
 
             mHandler.post(() -> {
@@ -127,10 +129,6 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onDrawFrame(GL10 gl) {
-            if (mExternalTexture == null) {
-                return;
-            }
-
             mExternalTexture.updateTexture();
 
             if (mTextureHandle == null && mExternalTexture.isPlaybackStarted()) {

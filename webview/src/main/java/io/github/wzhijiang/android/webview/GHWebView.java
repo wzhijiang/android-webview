@@ -2,7 +2,6 @@ package io.github.wzhijiang.android.webview;
 
 import android.app.Activity;
 import android.content.Context;
-import android.graphics.Canvas;
 import android.os.Build;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -157,12 +156,17 @@ public class GHWebView extends WebView {
 
     public static GHWebView create(Context context, int width, int height) {
         LayoutInflater inflater = LayoutInflater.from(context);
-        WebLayout layout = (WebLayout)inflater.inflate(R.layout.web_layout, null, false);
+
+        // Note that in dependency 'android-surface.aar', there's a R.layout.web_layout.
+        // Thus we should use a different layout name here.
+        FrameLayout frameLayout = (FrameLayout)inflater.inflate(R.layout.gh_web_layout, null, false);
+
+        // Cast the frame layout to WebLayout
+        WebLayout layout = (WebLayout)frameLayout;
 
         GHWebView webView = layout.findViewById(R.id.web_view);
         webView.setWebLayout(layout);
         webView.init();
-
         return webView;
     }
 

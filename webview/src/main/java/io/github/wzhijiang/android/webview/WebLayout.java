@@ -54,7 +54,7 @@ public class WebLayout extends FrameLayout {
             return;
         }
 
-        Canvas glAttachedCanvas = mSurface.lockCanvas(null);
+        Canvas glAttachedCanvas = mSurface.lockHardwareCanvas();
         if (glAttachedCanvas != null) {
             if (DEBUG_DRAW) {
                 Log.v(BuildConfig.LOG_TAG, "weblayout draw");
