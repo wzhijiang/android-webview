@@ -4,11 +4,7 @@ import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.google.android.material.snackbar.Snackbar;
-
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
 
 import android.os.Handler;
 import android.os.Looper;
@@ -18,8 +14,6 @@ import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.View;
 
-import android.view.Menu;
-import android.view.MenuItem;
 import android.view.Window;
 import android.widget.FrameLayout;
 
@@ -29,11 +23,11 @@ import javax.microedition.khronos.opengles.GL10;
 import io.github.wzhijiang.android.surface.ExternalTexture;
 import io.github.wzhijiang.android.surface.QuadRenderer;
 import io.github.wzhijiang.android.surface.TextureHandle;
-import io.github.wzhijiang.android.webview.SimpleWebView;
+import io.github.wzhijiang.android.webview.GHWebView;
 
 public class MainActivity extends AppCompatActivity {
 
-    private SimpleWebView mWebView;
+    private GHWebView mWebView;
     private GLSurfaceView mSurfaceView;
     private Handler mHandler;
     private ExternalTexture mExternalTexture;
@@ -54,7 +48,7 @@ public class MainActivity extends AppCompatActivity {
         this.getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
 
         FrameLayout rootLayout = findViewById(R.id.root_layout);
-        mWebView = SimpleWebView.create(this, rootLayout, displayMetrics.widthPixels,
+        mWebView = GHWebView.create(this, rootLayout, displayMetrics.widthPixels,
                 displayMetrics.heightPixels, 0);
         mHandler = new Handler(Looper.getMainLooper());
     }
@@ -119,7 +113,7 @@ public class MainActivity extends AppCompatActivity {
             GLES20.glViewport(0, 0, width, height);
             Log.d(BuildConfig.LOG_TAG, "Surface changed: " + width + ", " + height);
 
-            Release();
+            release();
 
             mExternalTexture = new ExternalTexture(mHandler, width, height);
             mSurface = new Surface(mExternalTexture.getSurfaceTexture());
@@ -127,12 +121,16 @@ public class MainActivity extends AppCompatActivity {
             mHandler.post(() -> {
                 mWebView.setSurface(mSurface);
                 mWebView.resize(width, height);
-                mWebView.loadUrl("https://www.google.com/");
+                mWebView.loadUrl("https://www.bilibili.com/");
             });
         }
 
         @Override
         public void onDrawFrame(GL10 gl) {
+            if (mExternalTexture == null) {
+                return;
+            }
+
             mExternalTexture.updateTexture();
 
             if (mTextureHandle == null && mExternalTexture.isPlaybackStarted()) {
@@ -144,7 +142,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        void Release() {
+        void release() {
             if (mWebView != null) {
                 mWebView.setSurface(null);
             }

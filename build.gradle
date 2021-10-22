@@ -1,3 +1,6 @@
+Properties properties = new Properties()
+properties.load(project.rootProject.file("local.properties").newDataInputStream())
+
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 buildscript {
     repositories {
@@ -6,6 +9,10 @@ buildscript {
 
         maven {
             url "https://maven.pkg.github.com/wzhijiang/android-surface"
+            credentials {
+                username = properties["GITHUB_USERNAME"]
+                password = properties["GITHUB_TOKEN"]
+            }
         }
     }
     dependencies {
@@ -23,6 +30,10 @@ allprojects {
 
         maven {
             url "https://maven.pkg.github.com/wzhijiang/android-surface"
+            credentials {
+                username = properties["GITHUB_USERNAME"]
+                password = properties["GITHUB_TOKEN"]
+            }
         }
     }
 }

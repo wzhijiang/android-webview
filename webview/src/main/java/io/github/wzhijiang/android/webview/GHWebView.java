@@ -1,7 +1,9 @@
 package io.github.wzhijiang.android.webview;
 
+import android.app.Activity;
 import android.content.Context;
 import android.graphics.Canvas;
+import android.os.Build;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -9,7 +11,8 @@ import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.View;
 import android.view.ViewGroup;
-import android.webkit.WebChromeClient;
+import android.view.Window;
+import android.view.WindowManager;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -21,43 +24,52 @@ import androidx.annotation.Nullable;
 
 import io.github.wzhijiang.android.surface.MotionEventWrapper;
 
-public class SimpleWebView extends WebView {
+public class GHWebView extends WebView {
 
     private static final boolean DEBUG = true;
-    private static final boolean DEBUG_DRAW = false;
 
-    private Surface mSurface;
-    private FrameLayout mWebLayout;
+    private WebLayout mWebLayout;
     private MotionEventWrapper mEventWrapper;
 
-    public SimpleWebView(@NonNull Context context) {
+    public GHWebView(@NonNull Context context) {
         super(context);
     }
 
-    public SimpleWebView(@NonNull Context context, @Nullable AttributeSet attrs) {
+    public GHWebView(@NonNull Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
     }
 
-    public SimpleWebView(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
+    public GHWebView(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
     }
 
-    public SimpleWebView(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr, int defStyleRes) {
+    public GHWebView(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr, int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
     }
 
-    private void setWebLayout(FrameLayout layout) {
+    private void setWebLayout(WebLayout layout) {
         mWebLayout = layout;
     }
 
-    public FrameLayout getWebLayout() {
+    public WebLayout getWebLayout() {
         return mWebLayout;
     }
 
     public void init() {
         mEventWrapper = new MotionEventWrapper();
 
-        setLayerType(View.LAYER_TYPE_HARDWARE, null);
+        // Enable hardware acceleration so that the webview could play video
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
+            Context context = getContext();
+            if (context instanceof Activity) {
+                Window window = ((Activity) context).getWindow();
+                window.setFlags(
+                        WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+                        WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
+            }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R){
+            setLayerType(View.LAYER_TYPE_HARDWARE, null);
+        }
 
         initSettings();
 
@@ -93,32 +105,19 @@ public class SimpleWebView extends WebView {
     }
 
     public void setSurface(Surface surface) {
-        mSurface = surface;
+        mWebLayout.setSurface(surface);
     }
 
     @Override
-    public void draw(Canvas canvas) {
-        if (mSurface == null) {
-            super.draw(canvas);
-            return;
+    public void invalidate() {
+        // Notify the WebLayout to draw surface
+        mWebLayout.invalidate();
+
+        super.invalidate();
+
+        if (DEBUG) {
+            Log.v(BuildConfig.LOG_TAG, "webview invalidate");
         }
-
-        Canvas glAttachedCanvas = mSurface.lockCanvas(null);
-        if (glAttachedCanvas != null) {
-            if (DEBUG_DRAW) {
-                Log.v(BuildConfig.LOG_TAG, "webview draw" );
-            }
-
-            glAttachedCanvas.scale(getScaleX(), getScaleY());
-            glAttachedCanvas.translate(-getScrollX(), -getScrollY());
-
-            super.draw(glAttachedCanvas);
-        } else {
-            super.draw(canvas);
-            return;
-        }
-
-        mSurface.unlockCanvasAndPost(glAttachedCanvas);
     }
 
     @Override
@@ -156,19 +155,23 @@ public class SimpleWebView extends WebView {
         }
     };
 
-    public static SimpleWebView create(Context context, int width, int height) {
+    public static GHWebView create(Context context, int width, int height) {
         LayoutInflater inflater = LayoutInflater.from(context);
-        FrameLayout layout = (FrameLayout)inflater.inflate(R.layout.web_layout, null, false);
+        WebLayout layout = (WebLayout)inflater.inflate(R.layout.web_layout, null, false);
 
-        SimpleWebView webView = layout.findViewById(R.id.web_view);
+        GHWebView webView = layout.findViewById(R.id.web_view);
         webView.setWebLayout(layout);
         webView.init();
 
         return webView;
     }
 
-    public static SimpleWebView create(Context context, ViewGroup parent, int width, int height, int zorder) {
-        SimpleWebView webView = create(context, width, height);
+    public static GHWebView create(Context context, ViewGroup parent, int width, int height, int zorder) {
+        if (parent == null) {
+            throw new AssertionError("parent cannot be null");
+        }
+
+        GHWebView webView = create(context, width, height);
         parent.addView(webView.getWebLayout(), zorder);
 
         FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) webView.getWebLayout().getLayoutParams();
