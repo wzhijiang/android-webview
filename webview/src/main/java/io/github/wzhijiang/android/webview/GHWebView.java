@@ -12,6 +12,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -27,8 +28,12 @@ public class GHWebView extends WebView {
 
     private static final boolean DEBUG = true;
 
+    private static final boolean LOG_INVALIDATE = false;
+
     private WebLayout mWebLayout;
-    private MotionEventWrapper mEventWrapper;
+
+    private View mCustomView;
+    private WebChromeClient.CustomViewCallback mCustomViewCallback;
 
     public GHWebView(@NonNull Context context) {
         super(context);
@@ -55,8 +60,6 @@ public class GHWebView extends WebView {
     }
 
     public void init() {
-        mEventWrapper = new MotionEventWrapper();
-
         // Enable hardware acceleration so that the webview could play video
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
             Context context = getContext();
@@ -73,6 +76,7 @@ public class GHWebView extends WebView {
         initSettings();
 
         setWebViewClient(mWebViewClient);
+        setWebChromeClient(mWebChromeClient);
 
         Log.i(BuildConfig.LOG_TAG, "webview inited");
     }
@@ -103,10 +107,6 @@ public class GHWebView extends WebView {
         settings.setSupportZoom(true);
     }
 
-    public void setSurface(Surface surface) {
-        mWebLayout.setSurface(surface);
-    }
-
     @Override
     public void invalidate() {
         // Notify the WebLayout to draw surface
@@ -114,34 +114,49 @@ public class GHWebView extends WebView {
 
         super.invalidate();
 
-        if (DEBUG) {
+        if (LOG_INVALIDATE) {
             Log.v(BuildConfig.LOG_TAG, "webview invalidate");
         }
     }
 
-    @Override
-    public boolean dispatchTouchEvent(MotionEvent ev) {
-        return false;
+    public void setSurface(Surface surface) {
+        mWebLayout.setSurface(surface);
     }
 
     public boolean dispatchTouchEvent(int x, int y, int action) {
-        MotionEvent ev = mEventWrapper.genTouchEvent(x, y, action);
-
-        if (DEBUG) {
-            Log.d(BuildConfig.LOG_TAG, "touched: " + ev.toString());
-        }
-
-        return super.dispatchTouchEvent(ev);
+        return mWebLayout.dispatchTouchEvent(x, y, action);
     }
 
     public void resize(int width, int height) {
-        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) mWebLayout.getLayoutParams();
-        params.height = height;
-        params.width = width;
-        mWebLayout.setLayoutParams(params);
+        mWebLayout.resize(width, height);
     }
 
-    public WebViewClient mWebViewClient = new WebViewClient() {
+    @Override
+    public boolean canGoBack() {
+        FrameLayout customViewContainer = mWebLayout.getCustomViewContainer();
+        if (customViewContainer != null && customViewContainer.getVisibility() == View.VISIBLE) {
+            return true;
+        }
+
+        return super.canGoBack();
+    }
+
+    @Override
+    public void goBack() {
+        Log.e(BuildConfig.LOG_TAG, "goBack");
+
+        FrameLayout customViewContainer = mWebLayout.getCustomViewContainer();
+
+        // If customViewContainer is visible (fullscreen)
+        if (customViewContainer != null && customViewContainer.getVisibility() == View.VISIBLE) {
+            mWebChromeClient.onHideCustomView();
+            return;
+        }
+
+        super.goBack();
+    }
+
+    private WebViewClient mWebViewClient = new WebViewClient() {
 
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
@@ -151,6 +166,50 @@ public class GHWebView extends WebView {
             }
 
             return true;
+        }
+    };
+
+    private WebChromeClient mWebChromeClient = new WebChromeClient() {
+
+        @Override
+        public void onShowCustomView(View view, CustomViewCallback callback) {
+            super.onShowCustomView(view, callback);
+
+            if (DEBUG) {
+                Log.d(BuildConfig.LOG_TAG, "WebChromeClient onShowCustomView");
+            }
+
+            // If a view already exists then immediately terminate the new one
+            if (mCustomView != null) {
+                callback.onCustomViewHidden();
+                return;
+            }
+
+            mCustomView = view;
+            GHWebView.this.setVisibility(View.GONE);
+            mWebLayout.getCustomViewContainer().setVisibility(View.VISIBLE);
+            mWebLayout.getCustomViewContainer().addView(mCustomView);
+            mCustomViewCallback = callback;
+        }
+
+        @Override
+        public void onHideCustomView() {
+            super.onHideCustomView();
+
+            if (DEBUG) {
+                Log.d(BuildConfig.LOG_TAG, "WebChromeClient onHideCustomView");
+            }
+
+            if (mCustomView == null) {
+                return;
+            }
+
+            GHWebView.this.setVisibility(View.VISIBLE);
+            mWebLayout.getCustomViewContainer().setVisibility(View.GONE);
+            mCustomView.setVisibility(View.GONE);
+            mWebLayout.getCustomViewContainer().removeView(mCustomView);
+            mCustomViewCallback.onCustomViewHidden();
+            mCustomView = null;
         }
     };
 

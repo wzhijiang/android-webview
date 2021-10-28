@@ -10,6 +10,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.View;
@@ -59,6 +60,15 @@ public class MainActivity extends AppCompatActivity {
             return mWebView.dispatchTouchEvent((int) ev.getX(), (int) ev.getY(), ev.getAction());
         }
         return super.dispatchTouchEvent(ev);
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.getKeyCode() == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP) {
+            mWebView.goBack();
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
     }
 
     @Override

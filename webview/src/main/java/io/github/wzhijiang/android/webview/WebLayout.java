@@ -2,22 +2,27 @@ package io.github.wzhijiang.android.webview;
 
 import android.content.Context;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.Surface;
 import android.widget.FrameLayout;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import java.lang.reflect.Field;
+import io.github.wzhijiang.android.surface.MotionEventWrapper;
 
 public class WebLayout extends FrameLayout {
 
-    private static final boolean DEBUG_DRAW = true;
+    private static final boolean LOG_DRAW = false;
+    private static final boolean LOG_TOUCH = true;
 
     private Surface mSurface;
+
+    private MotionEventWrapper mEventWrapper;
+
+    private FrameLayout mCustomViewContainer;
 
     public WebLayout(@NonNull Context context) {
         super(context);
@@ -41,6 +46,19 @@ public class WebLayout extends FrameLayout {
 
     public void init() {
         setWillNotDraw(false);
+
+        mEventWrapper = new MotionEventWrapper();
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+
+        mCustomViewContainer = findViewById(R.id.custom_view_container);
+    }
+
+    public FrameLayout getCustomViewContainer() {
+        return mCustomViewContainer;
     }
 
     public void setSurface(Surface surface) {
@@ -56,7 +74,7 @@ public class WebLayout extends FrameLayout {
 
         Canvas glAttachedCanvas = mSurface.lockHardwareCanvas();
         if (glAttachedCanvas != null) {
-            if (DEBUG_DRAW) {
+            if (LOG_DRAW) {
                 Log.v(BuildConfig.LOG_TAG, "weblayout draw");
             }
 
@@ -67,5 +85,27 @@ public class WebLayout extends FrameLayout {
         }
 
         mSurface.unlockCanvasAndPost(glAttachedCanvas);
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        return false;
+    }
+
+    public boolean dispatchTouchEvent(int x, int y, int action) {
+        MotionEvent ev = mEventWrapper.genTouchEvent(x, y, action);
+
+        if (LOG_TOUCH) {
+            Log.d(BuildConfig.LOG_TAG, "WebLayout's touch event: " + ev.toString());
+        }
+
+        return super.dispatchTouchEvent(ev);
+    }
+
+    public void resize(int width, int height) {
+        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) this.getLayoutParams();
+        params.height = height;
+        params.width = width;
+        this.setLayoutParams(params);
     }
 }

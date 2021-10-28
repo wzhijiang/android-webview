@@ -10,4 +10,12 @@
 
     </io.github.wzhijiang.android.webview.GHWebView>
 
+    <FrameLayout
+        android:id="@+id/custom_view_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone">
+
+    </FrameLayout>
+
 </io.github.wzhijiang.android.webview.WebLayout>
